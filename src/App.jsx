@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { clinicApi } from './api'
+import { Appointments, AppointmentDetails, AppointmentForm } from './Appointments'
 import './App.css'
 
 const formatDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
@@ -36,6 +37,7 @@ function Home({ go }) {
         <button className="feature-card" onClick={() => go('owners')}><span>🔎</span><strong>보호자 검색</strong><small>보호자와 반려동물 기록 찾기</small><b>바로가기 →</b></button>
         <button className="feature-card" onClick={() => go('ownerForm')}><span>✍️</span><strong>보호자 등록</strong><small>새 보호자 정보 입력하기</small><b>바로가기 →</b></button>
         <button className="feature-card" onClick={() => go('vets')}><span>🩺</span><strong>수의사 안내</strong><small>수의사와 전문 분야 확인하기</small><b>바로가기 →</b></button>
+        <button className="feature-card" onClick={() => go('appointments')}><span>📅</span><strong>진료 예약</strong><small>예약 조회와 신규 예약 신청</small><b>바로가기 →</b></button>
       </div>
     </section>
   </>
@@ -105,23 +107,38 @@ function Owners({ go }) {
 function OwnerDetails({ ownerId, go }) {
   const [owner, setOwner] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
     clinicApi.getOwner(ownerId).then((data) => { if (active) setOwner(data) }).catch((e) => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [ownerId])
+  async function removeOwner() {
+    if (!window.confirm('보호자를 삭제하면 반려동물, 방문 기록, 진료 예약도 함께 삭제됩니다. 계속할까요?')) return
+    setBusy(true); setError('')
+    try { await clinicApi.deleteOwner(ownerId); go('owners') }
+    catch (e) { setError(errorText(e)); setBusy(false) }
+  }
+  async function removeRelated(message, action) {
+    if (!window.confirm(message)) return
+    setBusy(true); setError('')
+    try { await action(); setOwner(await clinicApi.getOwner(ownerId)) }
+    catch (e) { setError(errorText(e)) }
+    finally { setBusy(false) }
+  }
   if (loading) return <p className="empty">불러오는 중...</p>
-  if (error) return <section className="page"><Notice tone="error">{error}</Notice></section>
+  if (error && !owner) return <section className="page"><Notice tone="error">{error}</Notice></section>
   return <section className="page">
     <button className="back-link" onClick={() => go('owners')}>← 보호자 목록</button>
-    <div className="page-heading"><div><span className="eyebrow">OWNER PROFILE</span><h1>{fullName(owner)}</h1><p>보호자 정보와 반려동물의 진료 기록</p></div><Action secondary onClick={() => go('ownerForm', { ownerId })}>정보 수정</Action></div>
+    <div className="page-heading"><div><span className="eyebrow">OWNER PROFILE</span><h1>{fullName(owner)}</h1><p>보호자 정보와 반려동물의 진료 기록</p></div><div className="inline-actions"><Action secondary onClick={() => go('ownerForm', { ownerId })}>정보 수정</Action><Action secondary disabled={busy} onClick={removeOwner}>보호자 삭제</Action></div></div>
+    {error && <Notice tone="error">{error}</Notice>}
     <div className="info-card"><div><small>이름</small><strong>{owner.name}</strong></div><div><small>주소</small><strong>{owner.address}</strong></div><div><small>전화번호</small><strong>{owner.phone}</strong></div></div>
     <div className="section-heading inline"><div><span className="eyebrow">PETS & VISITS</span><h2>반려동물과 진료 기록</h2></div><Action onClick={() => go('petForm', { ownerId })}>+ 반려동물 등록</Action></div>
     {owner.pets?.length ? <div className="pet-grid">{owner.pets.map((pet) => <article className="pet-card" key={pet.id}>
       <div className="pet-heading"><span className="pet-icon">🐶</span><div><h3>{pet.name}</h3><p>{pet.type?.name || '종류 미등록'} · {pet.birthDate || '생일 미등록'}</p></div></div>
-      <div className="pet-actions"><button className="text-link" onClick={() => go('petForm', { ownerId, petId: pet.id })}>정보 수정</button><button className="text-link" onClick={() => go('visitForm', { ownerId, petId: pet.id })}>+ 진료 기록</button></div>
-      <div className="visits"><h4>진료 기록</h4>{pet.visits?.length ? pet.visits.map((visit) => <div className="visit-row" key={visit.id}><time>{visit.date}</time><span>{visit.description}</span></div>) : <p>아직 진료 기록이 없습니다.</p>}</div>
+      <div className="pet-actions"><button className="text-link" onClick={() => go('petForm', { ownerId, petId: pet.id })}>정보 수정</button><button className="text-link" onClick={() => go('visitForm', { ownerId, petId: pet.id })}>+ 방문 기록</button><button className="text-link" onClick={() => go('appointmentForm', { ownerId, petId: pet.id })}>+ 진료 예약</button><button className="text-link danger" disabled={busy} onClick={() => removeRelated('반려동물을 삭제하면 방문 기록과 진료 예약도 함께 삭제됩니다. 계속할까요?', () => clinicApi.deletePet(ownerId, pet.id))}>반려동물 삭제</button></div>
+      <div className="visits"><h4>방문 기록</h4>{pet.visits?.length ? pet.visits.map((visit) => <div className="visit-row" key={visit.id}><time>{visit.date}</time><span>{visit.description}</span><div className="row-actions">{visit.date >= tomorrow() && <button className="text-link" onClick={() => go('visitForm', { ownerId, petId: pet.id, visitId: visit.id })}>수정</button>}<button className="text-link danger" disabled={busy} onClick={() => removeRelated('이 방문 기록을 삭제할까요?', () => clinicApi.deleteVisit(ownerId, pet.id, visit.id))}>삭제</button></div></div>) : <p>아직 방문 기록이 없습니다.</p>}</div>
     </article>)}</div> : <p className="empty">등록된 반려동물이 없습니다.</p>}
   </section>
 }
@@ -196,27 +213,37 @@ function PetForm({ ownerId, petId, go }) {
   </section>
 }
 
-function VisitForm({ ownerId, petId, go }) {
+function VisitForm({ ownerId, petId, visitId, go }) {
+  const editing = Boolean(visitId)
   const [pet, setPet] = useState(null)
   const [form, setForm] = useState({ date: tomorrow(), description: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => { clinicApi.getPet(ownerId, petId).then(setPet).catch((e) => setError(errorText(e))).finally(() => setLoading(false)) }, [ownerId, petId])
+  useEffect(() => {
+    clinicApi.getPet(ownerId, petId).then((data) => {
+      setPet(data)
+      if (editing) {
+        const visit = data.visits?.find((item) => String(item.id) === String(visitId))
+        if (!visit) throw new Error('방문 기록을 찾을 수 없습니다.')
+        setForm({ date: visit.date, description: visit.description })
+      }
+    }).catch((e) => setError(errorText(e))).finally(() => setLoading(false))
+  }, [ownerId, petId, visitId, editing])
   async function submit(e) {
     e.preventDefault(); setSaving(true); setError('')
-    try { await clinicApi.saveVisit(ownerId, petId, form); go('owner', { ownerId }) }
+    try { await clinicApi.saveVisit(ownerId, petId, form, visitId); go('owner', { ownerId }) }
     catch (e) { setError(errorText(e)) }
     finally { setSaving(false) }
   }
   return <section className="page narrow">
     <button className="back-link" onClick={() => go('owner', { ownerId })}>← 보호자 상세</button>
-    <span className="eyebrow">VISIT</span><h1>진료 기록 추가</h1><p className="page-intro">반려동물: {pet?.name}</p>
+    <span className="eyebrow">VISIT</span><h1>{editing ? '방문 기록 수정' : '방문 기록 추가'}</h1><p className="page-intro">반려동물: {pet?.name}</p>
     {error && <Notice tone="error">{error}</Notice>}
     {loading ? <p className="empty">불러오는 중...</p> : <form className="form-card" onSubmit={submit}>
       <Field label="진료 날짜" name="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} type="date" min={tomorrow()} />
       <label className="field"><span>진료 내용</span><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required maxLength={255} rows="5" placeholder="진료 내용을 입력하세요" /></label>
-      <div className="form-actions"><Action secondary onClick={() => go('owner', { ownerId })}>취소</Action><Action type="submit" disabled={saving}>{saving ? '저장 중...' : '진료 기록 저장'}</Action></div>
+      <div className="form-actions"><Action secondary onClick={() => go('owner', { ownerId })}>취소</Action><Action type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '수정 저장' : '방문 기록 저장'}</Action></div>
     </form>}
   </section>
 }
@@ -251,7 +278,7 @@ function App() {
   const go = useCallback((name, params = {}) => { setScreen({ name, ...params, nonce: Date.now() + Math.random() }); window.scrollTo(0, 0) }, [])
   return <div className="site">
     <header className="site-header"><button className="brand" onClick={() => go('home')} aria-label="PetClinic 홈"><span>✦</span> PetClinic</button>
-      <nav aria-label="주 메뉴"><button className={screen.name === 'home' ? 'active' : ''} onClick={() => go('home')}>홈</button><button className={['owners', 'owner', 'ownerForm', 'petForm', 'visitForm'].includes(screen.name) ? 'active' : ''} onClick={() => go('owners')}>보호자</button><button className={screen.name === 'vets' ? 'active' : ''} onClick={() => go('vets')}>수의사</button></nav>
+      <nav aria-label="주 메뉴"><button className={screen.name === 'home' ? 'active' : ''} onClick={() => go('home')}>홈</button><button className={['owners', 'owner', 'ownerForm', 'petForm', 'visitForm'].includes(screen.name) ? 'active' : ''} onClick={() => go('owners')}>보호자</button><button className={screen.name === 'vets' ? 'active' : ''} onClick={() => go('vets')}>수의사</button><button className={['appointments', 'appointment', 'appointmentForm'].includes(screen.name) ? 'active' : ''} onClick={() => go('appointments')}>진료 예약</button></nav>
     </header>
     <main key={screen.nonce}>
       {screen.name === 'home' && <Home go={go} />}
@@ -259,8 +286,11 @@ function App() {
       {screen.name === 'owner' && <OwnerDetails ownerId={screen.ownerId} go={go} />}
       {screen.name === 'ownerForm' && <OwnerForm ownerId={screen.ownerId} go={go} />}
       {screen.name === 'petForm' && <PetForm ownerId={screen.ownerId} petId={screen.petId} go={go} />}
-      {screen.name === 'visitForm' && <VisitForm ownerId={screen.ownerId} petId={screen.petId} go={go} />}
+      {screen.name === 'visitForm' && <VisitForm ownerId={screen.ownerId} petId={screen.petId} visitId={screen.visitId} go={go} />}
       {screen.name === 'vets' && <Vets />}
+      {screen.name === 'appointments' && <Appointments go={go} />}
+      {screen.name === 'appointment' && <AppointmentDetails appointmentId={screen.appointmentId} go={go} />}
+      {screen.name === 'appointmentForm' && <AppointmentForm appointmentId={screen.appointmentId} ownerId={screen.ownerId} petId={screen.petId} go={go} />}
     </main>
     <footer className="site-footer"><span>✦ PetClinic</span><small>반려동물과 보호자를 위한 건강 기록</small></footer>
   </div>

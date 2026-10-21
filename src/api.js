@@ -1,5 +1,6 @@
 const id = (value) => encodeURIComponent(String(value))
 const petPath = (ownerId, petId) => '/owners/' + id(ownerId) + '/pets/' + id(petId)
+const appointmentPath = (appointmentId) => '/appointments/' + id(appointmentId)
 
 async function request(path, { method = 'GET', body } = {}) {
   let response
@@ -66,4 +67,21 @@ export const clinicApi = {
   getHospital(hospitalId) { return request('/hospitals/' + id(hospitalId)) },
   listHospitalVets(hospitalId) { return request('/hospitals/' + id(hospitalId) + '/vets') },
   listVets() { return request('/vets') },
+  listAppointments(filters = {}) {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== '' && value !== undefined && value !== null) query.set(key, String(value))
+    }
+    return request('/appointments' + (query.size ? '?' + query : ''))
+  },
+  getAppointment(appointmentId) { return request(appointmentPath(appointmentId)) },
+  saveAppointment(input, appointmentId) {
+    return request(appointmentId ? appointmentPath(appointmentId) : '/appointments', {
+      method: appointmentId ? 'PUT' : 'POST', body: input,
+    })
+  },
+  updateAppointmentStatus(appointmentId, status) {
+    return request(appointmentPath(appointmentId) + '/status', { method: 'PATCH', body: { status } })
+  },
+  deleteAppointment(appointmentId) { return request(appointmentPath(appointmentId), { method: 'DELETE' }) },
 }
