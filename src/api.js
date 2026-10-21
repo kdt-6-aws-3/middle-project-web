@@ -36,8 +36,8 @@ async function request(path, { method = 'GET', body } = {}) {
 }
 
 export const clinicApi = {
-  listOwners(lastName = '', page = 1, size = 5) {
-    const query = new URLSearchParams({ lastName, page: String(page), size: String(size) })
+  listOwners(name = '', page = 1, size = 5) {
+    const query = new URLSearchParams({ name, page: String(page), size: String(size) })
     return request('/owners?' + query)
   },
   getOwner(ownerId) { return request('/owners/' + id(ownerId)) },
@@ -46,6 +46,7 @@ export const clinicApi = {
       method: ownerId ? 'PUT' : 'POST', body: input,
     })
   },
+  deleteOwner(ownerId) { return request('/owners/' + id(ownerId), { method: 'DELETE' }) },
   listPetTypes() { return request('/pettypes') },
   getPet(ownerId, petId) { return request(petPath(ownerId, petId)) },
   savePet(ownerId, input, petId) {
@@ -53,9 +54,16 @@ export const clinicApi = {
       method: petId ? 'PUT' : 'POST', body: input,
     })
   },
+  deletePet(ownerId, petId) { return request(petPath(ownerId, petId), { method: 'DELETE' }) },
   listVisits(ownerId, petId) { return request(petPath(ownerId, petId) + '/visits') },
-  addVisit(ownerId, petId, input) {
-    return request(petPath(ownerId, petId) + '/visits', { method: 'POST', body: input })
+  saveVisit(ownerId, petId, input, visitId) {
+    return request(petPath(ownerId, petId) + '/visits' + (visitId ? '/' + id(visitId) : ''), {
+      method: visitId ? 'PUT' : 'POST', body: input,
+    })
   },
+  deleteVisit(ownerId, petId, visitId) { return request(petPath(ownerId, petId) + '/visits/' + id(visitId), { method: 'DELETE' }) },
+  listHospitals() { return request('/hospitals') },
+  getHospital(hospitalId) { return request('/hospitals/' + id(hospitalId)) },
+  listHospitalVets(hospitalId) { return request('/hospitals/' + id(hospitalId) + '/vets') },
   listVets() { return request('/vets') },
 }

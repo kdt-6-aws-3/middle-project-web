@@ -5,7 +5,7 @@ import './App.css'
 const formatDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
 const today = () => formatDate(new Date())
 const tomorrow = () => { const date = new Date(); date.setDate(date.getDate() + 1); return formatDate(date) }
-const fullName = (person) => [person?.firstName, person?.lastName].filter(Boolean).join(' ')
+const fullName = (person) => person?.name || ''
 const errorText = (error) => error instanceof Error ? error.message : '요청을 처리하지 못했습니다.'
 
 function Action({ children, onClick, secondary = false, type = 'button', disabled = false }) {
@@ -83,16 +83,16 @@ function Owners({ go }) {
 
   const owners = result.content ?? []
   return <section className="page">
-    <div className="page-heading"><div><span className="eyebrow">OWNERS</span><h1>보호자 찾기</h1><p>성으로 검색하거나 전체 보호자 목록을 확인하세요.</p></div><Action onClick={() => go('ownerForm')}>+ 새 보호자</Action></div>
+    <div className="page-heading"><div><span className="eyebrow">OWNERS</span><h1>보호자 찾기</h1><p>이름으로 검색하거나 전체 보호자 목록을 확인하세요.</p></div><Action onClick={() => go('ownerForm')}>+ 새 보호자</Action></div>
     <form className="search-row" onSubmit={search}>
-      <label htmlFor="owner-search" className="sr-only">보호자 성</label>
-      <input id="owner-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="보호자 성을 입력하세요" />
+      <label htmlFor="owner-search" className="sr-only">보호자 이름</label>
+      <input id="owner-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="보호자 이름을 입력하세요" />
       <Action type="submit">검색</Action>
     </form>
     {error && <Notice tone="error">{error}</Notice>}
     {loading ? <p className="empty">불러오는 중...</p> : error ? null : owners.length === 0 ? <p className="empty">검색 결과가 없습니다.</p> :
-      <div className="table-wrap"><table><thead><tr><th>보호자</th><th>도시</th><th>전화번호</th><th></th></tr></thead><tbody>
-        {owners.map((owner) => <tr key={owner.id}><td><strong>{fullName(owner)}</strong></td><td>{owner.city}</td><td>{owner.telephone}</td><td><button className="text-link" onClick={() => go('owner', { ownerId: owner.id })}>상세 보기 →</button></td></tr>)}
+      <div className="table-wrap"><table><thead><tr><th>보호자</th><th>주소</th><th>전화번호</th><th></th></tr></thead><tbody>
+        {owners.map((owner) => <tr key={owner.id}><td><strong>{fullName(owner)}</strong></td><td>{owner.address}</td><td>{owner.phone}</td><td><button className="text-link" onClick={() => go('owner', { ownerId: owner.id })}>상세 보기 →</button></td></tr>)}
       </tbody></table></div>}
     {!loading && !error && result.totalPages > 1 && <div className="pagination">
       <Action secondary disabled={page <= 1} onClick={() => changePage(page - 1)}>이전</Action>
@@ -116,7 +116,7 @@ function OwnerDetails({ ownerId, go }) {
   return <section className="page">
     <button className="back-link" onClick={() => go('owners')}>← 보호자 목록</button>
     <div className="page-heading"><div><span className="eyebrow">OWNER PROFILE</span><h1>{fullName(owner)}</h1><p>보호자 정보와 반려동물의 진료 기록</p></div><Action secondary onClick={() => go('ownerForm', { ownerId })}>정보 수정</Action></div>
-    <div className="info-card"><div><small>주소</small><strong>{owner.address}</strong></div><div><small>도시</small><strong>{owner.city}</strong></div><div><small>전화번호</small><strong>{owner.telephone}</strong></div></div>
+    <div className="info-card"><div><small>이름</small><strong>{owner.name}</strong></div><div><small>주소</small><strong>{owner.address}</strong></div><div><small>전화번호</small><strong>{owner.phone}</strong></div></div>
     <div className="section-heading inline"><div><span className="eyebrow">PETS & VISITS</span><h2>반려동물과 진료 기록</h2></div><Action onClick={() => go('petForm', { ownerId })}>+ 반려동물 등록</Action></div>
     {owner.pets?.length ? <div className="pet-grid">{owner.pets.map((pet) => <article className="pet-card" key={pet.id}>
       <div className="pet-heading"><span className="pet-icon">🐶</span><div><h3>{pet.name}</h3><p>{pet.type?.name || '종류 미등록'} · {pet.birthDate || '생일 미등록'}</p></div></div>
@@ -132,18 +132,18 @@ function Field({ label, name, value, onChange, type = 'text', required = true, m
 
 function OwnerForm({ ownerId, go }) {
   const editing = Boolean(ownerId)
-  const [form, setForm] = useState({ firstName: '', lastName: '', address: '', city: '', telephone: '' })
+  const [form, setForm] = useState({ name: '', address: '', phone: '' })
   const [loading, setLoading] = useState(editing)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
     if (!editing) return
-    clinicApi.getOwner(ownerId).then((data) => setForm({ firstName: data.firstName, lastName: data.lastName, address: data.address, city: data.city, telephone: data.telephone })).catch((e) => setError(errorText(e))).finally(() => setLoading(false))
+    clinicApi.getOwner(ownerId).then((data) => setForm({ name: data.name, address: data.address, phone: data.phone })).catch((e) => setError(errorText(e))).finally(() => setLoading(false))
   }, [editing, ownerId])
   const change = (e) => setForm({ ...form, [e.target.name]: e.target.value })
   async function submit(e) {
     e.preventDefault()
-    if (!/^\d{10}$/.test(form.telephone)) { setError('전화번호는 숫자 10자리로 입력하세요.'); return }
+    if (!/^\d{2,3}-\d{3,4}-\d{4}$/.test(form.phone)) { setError('전화번호는 010-1234-5678 형식으로 입력하세요.'); return }
     setSaving(true); setError('')
     try { const saved = await clinicApi.saveOwner(form, ownerId); go('owner', { ownerId: saved.id }) }
     catch (e) { setError(errorText(e)) }
@@ -154,9 +154,9 @@ function OwnerForm({ ownerId, go }) {
     <span className="eyebrow">OWNER</span><h1>{editing ? '보호자 정보 수정' : '새 보호자 등록'}</h1><p className="page-intro">보호자의 기본 정보를 입력해 주세요.</p>
     {error && <Notice tone="error">{error}</Notice>}
     {loading ? <p className="empty">불러오는 중...</p> : <form className="form-card" onSubmit={submit}>
-      <div className="form-grid"><Field label="이름" name="firstName" value={form.firstName} onChange={change} maxLength={30} /><Field label="성" name="lastName" value={form.lastName} onChange={change} maxLength={30} /></div>
+      <Field label="이름" name="name" value={form.name} onChange={change} maxLength={255} />
       <Field label="주소" name="address" value={form.address} onChange={change} maxLength={255} />
-      <div className="form-grid"><Field label="도시" name="city" value={form.city} onChange={change} maxLength={80} /><Field label="전화번호 (숫자 10자리)" name="telephone" value={form.telephone} onChange={change} type="tel" maxLength={10} /></div>
+      <Field label="전화번호 (예: 010-1234-5678)" name="phone" value={form.phone} onChange={change} type="tel" maxLength={13} />
       <div className="form-actions"><Action secondary onClick={() => go(editing ? 'owner' : 'owners', editing ? { ownerId } : {})}>취소</Action><Action type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '수정 저장' : '보호자 등록'}</Action></div>
     </form>}
   </section>
@@ -188,7 +188,7 @@ function PetForm({ ownerId, petId, go }) {
     <span className="eyebrow">PET</span><h1>{editing ? '반려동물 정보 수정' : '반려동물 등록'}</h1><p className="page-intro">보호자: {fullName(owner)}<br />같은 이름의 반려동물도 등록할 수 있습니다.</p>
     {error && <Notice tone="error">{error}</Notice>}
     {loading ? <p className="empty">불러오는 중...</p> : <form className="form-card" onSubmit={submit}>
-      <Field label="이름" name="name" value={form.name} onChange={change} maxLength={30} />
+      <Field label="이름" name="name" value={form.name} onChange={change} maxLength={255} />
       <div className="form-grid"><Field label="생일" name="birthDate" value={form.birthDate} onChange={change} type="date" max={today()} />
         <Field label="종류" name="typeId" value={form.typeId} onChange={change}><select name="typeId" value={form.typeId} onChange={change} required><option value="">종류 선택</option>{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></Field></div>
       <div className="form-actions"><Action secondary onClick={() => go('owner', { ownerId })}>취소</Action><Action type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '수정 저장' : '반려동물 등록'}</Action></div>
@@ -205,7 +205,7 @@ function VisitForm({ ownerId, petId, go }) {
   useEffect(() => { clinicApi.getPet(ownerId, petId).then(setPet).catch((e) => setError(errorText(e))).finally(() => setLoading(false)) }, [ownerId, petId])
   async function submit(e) {
     e.preventDefault(); setSaving(true); setError('')
-    try { await clinicApi.addVisit(ownerId, petId, form); go('owner', { ownerId }) }
+    try { await clinicApi.saveVisit(ownerId, petId, form); go('owner', { ownerId }) }
     catch (e) { setError(errorText(e)) }
     finally { setSaving(false) }
   }
@@ -223,12 +223,25 @@ function VisitForm({ ownerId, petId, go }) {
 
 function Vets() {
   const [vets, setVets] = useState([])
+  const [hospitals, setHospitals] = useState([])
+  const [hospitalId, setHospitalId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  useEffect(() => { clinicApi.listVets().then(setVets).catch((e) => setError(errorText(e))).finally(() => setLoading(false)) }, [])
+  useEffect(() => {
+    clinicApi.listHospitals().then(setHospitals).catch((e) => setError(errorText(e)))
+  }, [])
+  useEffect(() => {
+    let active = true
+    const load = hospitalId ? clinicApi.listHospitalVets(hospitalId) : clinicApi.listVets()
+    load.then((data) => { if (active) setVets(data) })
+      .catch((e) => { if (active) setError(errorText(e)) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [hospitalId])
   return <section className="page"><span className="eyebrow">VETERINARIANS</span><h1>수의사 안내</h1><p className="page-intro">PetClinic 수의사와 전문 분야를 확인하세요.</p>
+    <label className="field"><span>병원</span><select value={hospitalId} onChange={(e) => { setHospitalId(e.target.value); setError(''); setLoading(true) }}><option value="">전체 병원</option>{hospitals.map((hospital) => <option key={hospital.id} value={hospital.id}>{hospital.name}</option>)}</select></label>
     {error && <Notice tone="error">{error}</Notice>}
-    {loading ? <p className="empty">불러오는 중...</p> : <div className="table-wrap"><table><thead><tr><th>수의사</th><th>전문 분야</th></tr></thead><tbody>{vets.map((vet) => <tr key={vet.id}><td><strong>{fullName(vet)}</strong></td><td>{vet.specialties?.length ? vet.specialties.map((item) => item.name).join(', ') : '일반 진료'}</td></tr>)}</tbody></table></div>}
+    {loading ? <p className="empty">불러오는 중...</p> : error ? null : vets.length === 0 ? <p className="empty">등록된 수의사가 없습니다.</p> : <div className="table-wrap"><table><thead><tr><th>수의사</th><th>병원</th><th>전문 분야</th></tr></thead><tbody>{vets.map((vet) => <tr key={vet.id}><td><strong>{fullName(vet)}</strong></td><td>{vet.hospital?.name || '미지정'}</td><td>{vet.specialties?.length ? vet.specialties.map((item) => item.name).join(', ') : '일반 진료'}</td></tr>)}</tbody></table></div>}
   </section>
 }
 
