@@ -31,7 +31,9 @@ async function request(path, { method = 'GET', body } = {}) {
     const fieldErrors = Array.isArray(data?.errors)
       ? data.errors.map((item) => item.message).filter(Boolean).join('\n')
       : ''
-    throw new Error(fieldErrors || data?.detail || data?.title || 'API 요청이 실패했습니다. (HTTP ' + response.status + ')')
+    const error = new Error(fieldErrors || data?.detail || data?.title || 'API 요청이 실패했습니다. (HTTP ' + response.status + ')')
+    error.status = response.status
+    throw error
   }
   return data
 }

@@ -66,6 +66,8 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .visits p { font-size: 14px; }
 .visit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 9px 0; border-bottom: 1px solid #f0f2f0; font-size: 14px; }
 .visit-row time { color: #65816e; white-space: nowrap; }
+.visit-copy { display: flex; flex: 1; min-width: 180px; flex-direction: column; gap: 4px; }
+.visit-copy small { color: #78887d; }
 .row-actions, .inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .row-actions { margin-left: auto; }
 .danger { color: #aa493d; }
@@ -73,6 +75,11 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .text-link:disabled { opacity: .5; cursor: wait; }
 .filter-card, .owner-search-card, .detail-card { background: white; border: 1px solid #e4ece5; border-radius: 18px; box-shadow: 0 8px 30px #315d3810; padding: 24px; margin: 22px 0; }
 .filter-card { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: end; gap: 12px; }
+.status-quick { display: flex; flex-wrap: wrap; gap: 9px; margin: 4px 0 18px; }
+.status-chip { border: 1px solid #d5e5d9; border-radius: 999px; background: #fff; color: #536b5c; padding: 9px 15px; font-size: 14px; font-weight: 700; }
+.status-chip:hover { border-color: #72aa82; color: #24624a; }
+.status-chip-active { border-color: #2c7751; background: #e9f4ed; color: #24624a; }
+.result-count { margin: 22px 0 12px; font-size: 14px; font-weight: 700; }
 .filter-card label, .owner-search-card > label:first-child { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 700; }
 .filter-card input, .filter-card select { width: 100%; }
 .owner-search-card .search-row { margin: 10px 0 18px; }
@@ -83,6 +90,7 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .form-card { padding: 30px; margin-top: 23px; }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; font-weight: 700; }
 .field span { font-size: 14px; }
+.field-hint { color: #728078; font-size: 12px; font-weight: 400; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
 .notice { padding: 15px 18px; border-radius: 11px; margin: 18px 0; }

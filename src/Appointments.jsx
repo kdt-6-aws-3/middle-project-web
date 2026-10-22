@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { clinicApi } from './api'
 
 const statusText = {
-  REQUESTED: '요청',
-  CONFIRMED: '확정',
+  REQUESTED: '접수 대기',
+  CONFIRMED: '예약 확정',
   CANCELLED: '취소',
-  COMPLETED: '완료',
+  COMPLETED: '진료 완료',
 }
+const statusOptions = [['', '전체 내역'], ['REQUESTED', '접수 대기'], ['CONFIRMED', '예약 확정'], ['COMPLETED', '진료 완료'], ['CANCELLED', '취소']]
 const isClosed = (status) => status === 'CANCELLED' || status === 'COMPLETED'
 const errorText = (error) => error instanceof Error ? error.message : '요청을 처리하지 못했습니다.'
 const displayDateTime = (value) => value ? value.replace('T', ' ').slice(0, 16) : '-'
@@ -15,12 +16,16 @@ const localDateTime = (date) => [
   String(date.getMonth() + 1).padStart(2, '0'),
   String(date.getDate()).padStart(2, '0'),
 ].join('-') + 'T' + [String(date.getHours()).padStart(2, '0'), String(date.getMinutes()).padStart(2, '0')].join(':')
-const minDateTime = () => localDateTime(new Date(Date.now() + 60_000))
+const minDateTime = () => {
+  const date = new Date()
+  date.setMinutes(date.getMinutes() < 30 ? 0 : 30, 0, 0)
+  return localDateTime(date)
+}
 const apiDateTime = (value) => value.length === 16 ? value + ':00' : value
 
-export function Appointments({ go }) {
-  const [filters, setFilters] = useState({ hospitalId: '', vetId: '', petId: '', status: '' })
-  const [applied, setApplied] = useState({})
+export function Appointments({ go, petId }) {
+  const [filters, setFilters] = useState({ hospitalId: '', vetId: '', petId: petId ? String(petId) : '', status: '' })
+  const [applied, setApplied] = useState({ petId: petId ? String(petId) : '' })
   const [hospitals, setHospitals] = useState([])
   const [vets, setVets] = useState([])
   const [appointments, setAppointments] = useState([])
@@ -47,10 +52,19 @@ export function Appointments({ go }) {
     setLoading(true)
     setApplied({ ...filters })
   }
+  function showStatus(status) {
+    setFilters((current) => ({ ...current, status }))
+    setError('')
+    setLoading(true)
+    setApplied({ ...filters, status })
+  }
   const change = (event) => setFilters((current) => ({ ...current, [event.target.name]: event.target.value }))
 
   return <section className="page">
-    <div className="page-heading"><div><span className="eyebrow">APPOINTMENTS</span><h1>진료 예약</h1><p>예약을 조회하고 상태를 관리하세요.</p></div><button className="button" onClick={() => go('appointmentForm')}>+ 새 예약</button></div>
+    <div className="page-heading"><div><span className="eyebrow">APPOINTMENTS</span><h1>진료 접수 내역</h1><p>접수 상태와 예약 내역을 조회하고 관리하세요.</p></div><button className="button" onClick={() => go('appointmentForm')}>+ 새 예약</button></div>
+    <div className="status-quick" aria-label="접수 상태 바로 보기">
+      {statusOptions.map(([value, label]) => <button key={value} type="button" className={'status-chip' + (applied.status === value || (!applied.status && !value) ? ' status-chip-active' : '')} aria-pressed={applied.status === value || (!applied.status && !value)} onClick={() => showStatus(value)}>{label}</button>)}
+    </div>
     <form className="filter-card" onSubmit={search}>
       <label>병원<select name="hospitalId" value={filters.hospitalId} onChange={change}><option value="">전체</option>{hospitals.map((hospital) => <option key={hospital.id} value={hospital.id}>{hospital.name}</option>)}</select></label>
       <label>수의사<select name="vetId" value={filters.vetId} onChange={change}><option value="">전체</option>{vets.map((vet) => <option key={vet.id} value={vet.id}>{vet.name}</option>)}</select></label>
@@ -59,9 +73,10 @@ export function Appointments({ go }) {
       <button className="button" type="submit">조회</button>
     </form>
     {error && <div className="notice notice-error" role="alert">{error}</div>}
-    {loading ? <p className="empty">불러오는 중...</p> : error ? null : appointments.length === 0 ? <p className="empty">예약이 없습니다.</p> :
-      <div className="table-wrap"><table><thead><tr><th>예약 일시</th><th>반려동물</th><th>병원</th><th>수의사</th><th>상태</th><th></th></tr></thead><tbody>
-        {appointments.map((appointment) => <tr key={appointment.id}><td>{displayDateTime(appointment.appointmentAt)}</td><td>{appointment.petName}</td><td>{appointment.hospitalName}</td><td>{appointment.vetName}</td><td>{statusText[appointment.status] || appointment.status}</td><td><button className="text-link" onClick={() => go('appointment', { appointmentId: appointment.id })}>상세 보기 →</button></td></tr>)}
+    {!loading && !error && <p className="result-count">조회된 접수 내역 {appointments.length}건</p>}
+    {loading ? <p className="empty">불러오는 중...</p> : error ? null : appointments.length === 0 ? <p className="empty">조건에 맞는 접수 내역이 없습니다.</p> :
+      <div className="table-wrap"><table><thead><tr><th>접수 번호</th><th>예약 일시</th><th>반려동물</th><th>병원</th><th>수의사</th><th>상태</th><th></th></tr></thead><tbody>
+        {appointments.map((appointment) => <tr key={appointment.id}><td>#{appointment.id}</td><td>{displayDateTime(appointment.appointmentAt)}</td><td>{appointment.petName}</td><td>{appointment.hospitalName}</td><td>{appointment.vetName}</td><td>{statusText[appointment.status] || appointment.status}</td><td><button className="text-link" onClick={() => go('appointment', { appointmentId: appointment.id })}>상세 보기 →</button></td></tr>)}
       </tbody></table></div>}
   </section>
 }
@@ -97,10 +112,11 @@ export function AppointmentDetails({ appointmentId, go }) {
   if (loading) return <section className="page"><p className="empty">불러오는 중...</p></section>
   if (!appointment) return <section className="page"><div className="notice notice-error" role="alert">{error || '예약을 찾을 수 없습니다.'}</div></section>
   return <section className="page narrow">
-    <button className="back-link" onClick={() => go('appointments')}>← 예약 목록</button>
-    <span className="eyebrow">APPOINTMENT</span><h1>진료 예약 상세</h1>
+    <button className="back-link" onClick={() => go('appointments')}>← 접수 내역</button>
+    <span className="eyebrow">APPOINTMENT</span><h1>진료 접수 상세</h1>
     {error && <div className="notice notice-error" role="alert">{error}</div>}
     <div className="detail-card">
+      <div><small>접수 번호</small><strong>#{appointment.id}</strong></div>
       <div><small>상태</small><strong>{statusText[appointment.status] || appointment.status}</strong></div>
       <div><small>예약 일시</small><strong>{displayDateTime(appointment.appointmentAt)}</strong></div>
       <div><small>반려동물</small><strong>{appointment.petName} (ID {appointment.petId})</strong></div>
@@ -205,7 +221,15 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
 
   async function submit(event) {
     event.preventDefault()
-    if (new Date(form.appointmentAt).getTime() <= Date.now()) { setError('현재 이후의 예약 일시를 선택하세요.'); return }
+    const selectedTime = new Date(form.appointmentAt)
+    if (!Number.isFinite(selectedTime.getTime()) || ![0, 30].includes(selectedTime.getMinutes())) {
+      setError('예약 시간은 정각 또는 30분으로 선택하세요.')
+      return
+    }
+    if (selectedTime.getTime() + 30 * 60_000 <= Date.now()) {
+      setError('현재 진행 중이거나 이후인 30분 예약 시간을 선택하세요.')
+      return
+    }
     setSaving(true); setError('')
     try {
       const saved = await clinicApi.saveAppointment({
@@ -216,7 +240,7 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
         reason: form.reason,
       }, appointmentId)
       go('appointment', { appointmentId: saved.id })
-    } catch (e) { setError(errorText(e)) }
+    } catch (e) { setError(e.status === 409 ? '같은 시간대에 다른 예약이 먼저 잡혔습니다. 접수 내역을 확인하고 다른 시간을 선택하세요.' : errorText(e)) }
     finally { setSaving(false) }
   }
 
@@ -239,7 +263,7 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
           <label className="field">반려동물<select name="petId" value={form.petId} onChange={change} required><option value="">반려동물 선택</option>{form.petId && !pets.some((pet) => String(pet.id) === form.petId) && <option value={form.petId}>{appointment?.petName || '선택된 반려동물'} (ID {form.petId})</option>}{pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} (ID {pet.id})</option>)}</select></label>
           <label className="field">수의사<select name="vetId" value={form.vetId} onChange={change} required disabled={!form.hospitalId}><option value="">수의사 선택</option>{vets.map((vet) => <option key={vet.id} value={vet.id}>{vet.name}</option>)}</select></label>
         </div>
-        <label className="field">예약 일시<input name="appointmentAt" type="datetime-local" value={form.appointmentAt} onChange={change} min={minDateTime()} required /></label>
+        <label className="field">예약 일시<input name="appointmentAt" type="datetime-local" value={form.appointmentAt} onChange={change} min={minDateTime()} step="1800" required /><small className="field-hint">30분 단위로 선택하세요. 현재 진행 중인 시간대까지 접수할 수 있습니다.</small></label>
         <label className="field">진료 사유 (선택)<textarea name="reason" value={form.reason} onChange={change} maxLength={255} rows="4" /></label>
         <div className="form-actions"><button className="button button-secondary" type="button" onClick={back}>취소</button><button className="button" type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '변경 저장' : '예약 신청'}</button></div>
       </form>
