@@ -25,6 +25,11 @@ const appointmentFields = (value) => {
   previousDay.setDate(previousDay.getDate() - 1)
   return { appointmentDate: localDateTime(previousDay).slice(0, 10), appointmentHour: '24', appointmentMinute: minute }
 }
+const nextCalendarDate = (value) => {
+  const nextDay = new Date(value + 'T12:00:00')
+  nextDay.setDate(nextDay.getDate() + 1)
+  return localDateTime(nextDay).slice(0, 10)
+}
 
 export function Appointments({ go, petId }) {
   const [filters, setFilters] = useState({ hospitalId: '', vetId: '', petId: petId ? String(petId) : '', status: '' })
@@ -155,6 +160,17 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
   const [searching, setSearching] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [vetSchedule, setVetSchedule] = useState([])
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
+  const [scheduleRetryKey, setScheduleRetryKey] = useState(0)
+  const scheduleDate = form.appointmentDate ? (form.appointmentHour === '24' ? nextCalendarDate(form.appointmentDate) : form.appointmentDate) : ''
+  const bookedTimes = vetSchedule
+    .filter((item) => item.status !== 'CANCELLED' && String(item.id) !== String(appointmentId))
+    .map((item) => item.appointmentAt.slice(11, 16))
+  const selectedTime = form.appointmentHour && form.appointmentMinute
+    ? String(form.appointmentHour === '24' ? 0 : Number(form.appointmentHour)).padStart(2, '0') + ':' + form.appointmentMinute
+    : ''
 
   useEffect(() => {
     Promise.all([clinicApi.listHospitals(), editing ? clinicApi.getAppointment(appointmentId) : Promise.resolve(null)])
@@ -162,6 +178,7 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
         setHospitals(hospitalList)
         if (current) {
           setAppointment(current)
+          setScheduleLoading(true)
           setForm({
             hospitalId: String(current.hospitalId),
             petId: String(current.petId),
@@ -197,6 +214,16 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
     return () => { active = false }
   }, [form.hospitalId])
 
+  useEffect(() => {
+    if (!form.vetId || !scheduleDate) return
+    let active = true
+    clinicApi.listVetAppointments(form.vetId, scheduleDate)
+      .then((data) => { if (active) setVetSchedule(data) })
+      .catch((e) => { if (active) setScheduleError(errorText(e)) })
+      .finally(() => { if (active) setScheduleLoading(false) })
+    return () => { active = false }
+  }, [form.vetId, scheduleDate, scheduleRetryKey])
+
   async function searchOwners(event) {
     event.preventDefault()
     setSearching(true); setError('')
@@ -221,6 +248,11 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
     const { name, value } = event.target
     setForm((current) => ({ ...current, [name]: value, ...(name === 'hospitalId' ? { vetId: '' } : {}) }))
     if (name === 'hospitalId') { setVets([]); setError('') }
+    if (['hospitalId', 'vetId', 'appointmentDate'].includes(name) || (name === 'appointmentHour' && (value === '24') !== (form.appointmentHour === '24'))) {
+      setVetSchedule([])
+      setScheduleError('')
+      setScheduleLoading(true)
+    }
   }
 
   async function submit(event) {
@@ -278,6 +310,11 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
           <label className="field">분<select name="appointmentMinute" value={form.appointmentMinute} onChange={change} required><option value="">분 선택</option><option value="00">00분</option><option value="30">30분</option></select></label>
         </div>
         <p className="field-hint">30분 단위로 접수할 수 있습니다. 24시는 선택한 날짜의 다음 날 00시대로 저장됩니다.</p>
+        {form.vetId && scheduleDate && <div className="vet-schedule" aria-live="polite">
+          <strong>수의사 예약 현황 · {scheduleDate}</strong>
+          {scheduleLoading ? <p>예약 현황을 불러오는 중...</p> : scheduleError ? <p className="schedule-error">{scheduleError} <button className="text-link" type="button" onClick={() => { setScheduleError(''); setScheduleLoading(true); setScheduleRetryKey((value) => value + 1) }}>다시 불러오기</button></p> : bookedTimes.length ? <p>이미 예약된 시간: {[...new Set(bookedTimes)].sort().join(', ')}</p> : <p>해당 날짜에 잡힌 예약이 없습니다.</p>}
+          {!scheduleLoading && !scheduleError && selectedTime && bookedTimes.includes(selectedTime) && <small className="schedule-error">선택한 시간은 이미 예약되어 있습니다. 다른 시간을 선택하세요.</small>}
+        </div>}
         <label className="field">진료 사유 (선택)<textarea name="reason" value={form.reason} onChange={change} maxLength={255} rows="4" /></label>
         <div className="form-actions"><button className="button button-secondary" type="button" onClick={back}>취소</button><button className="button" type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '변경 저장' : '예약 신청'}</button></div>
       </form>

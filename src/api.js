@@ -69,6 +69,10 @@ export const clinicApi = {
   getHospital(hospitalId) { return request('/hospitals/' + id(hospitalId)) },
   listHospitalVets(hospitalId) { return request('/hospitals/' + id(hospitalId) + '/vets') },
   listVets() { return request('/vets') },
+  listVetAppointments(vetId, date) {
+    const query = new URLSearchParams({ date })
+    return request('/vets/' + id(vetId) + '/appointments?' + query)
+  },
   listAppointments(filters = {}) {
     const query = new URLSearchParams()
     for (const [key, value] of Object.entries(filters)) {

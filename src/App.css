@@ -63,11 +63,14 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .pet-actions { display: flex; flex-wrap: wrap; gap: 12px 22px; margin: 19px 0; }
 .visits { border-top: 1px solid #e9eee9; padding-top: 15px; }
 .visits h4 { margin: 0 0 12px; }
+.visits h4 small { margin-left: 5px; color: #78887d; font-weight: 500; }
 .visits p { font-size: 14px; }
-.visit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 9px 0; border-bottom: 1px solid #f0f2f0; font-size: 14px; }
-.visit-row time { color: #65816e; white-space: nowrap; }
-.visit-copy { display: flex; flex: 1; min-width: 180px; flex-direction: column; gap: 4px; }
-.visit-copy small { color: #78887d; }
+.visit-entry { border: 1px solid #e7eee8; background: #fbfdfb; border-radius: 12px; padding: 14px; margin-top: 10px; }
+.visit-entry-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.visit-entry-head time { color: #2c7751; font-size: 14px; font-weight: 750; }
+.visit-entry-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
+.visit-entry-body small { color: #78887d; }
+.visit-entry-body p { color: #34463a; margin: 4px 0 0; overflow-wrap: anywhere; line-height: 1.5; }
 .row-actions, .inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .row-actions { margin-left: auto; }
 .danger { color: #aa493d; }
@@ -93,6 +96,10 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .field-hint { color: #728078; font-size: 12px; font-weight: 400; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .appointment-time-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+.vet-schedule { margin: 12px 0 22px; padding: 16px 18px; border: 1px solid #dce9de; border-radius: 12px; background: #f5faf6; font-size: 14px; }
+.vet-schedule strong { color: #24624a; }
+.vet-schedule p { margin: 7px 0 0; }
+.schedule-error { color: #a13e31; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
 .notice { padding: 15px 18px; border-radius: 11px; margin: 18px 0; }
 .notice-error { background: #fff0ee; color: #a13e31; border: 1px solid #f6c9c3; }
@@ -125,5 +132,6 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 @media (max-width: 800px) {
   .site-header nav { flex-wrap: wrap; justify-content: flex-start; }
   .feature-grid, .filter-card, .detail-card { grid-template-columns: 1fr; }
+  .visit-entry-body { grid-template-columns: 1fr; }
   .row-actions { margin-left: 0; }
 }
