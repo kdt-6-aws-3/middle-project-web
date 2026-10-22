@@ -16,12 +16,15 @@ const localDateTime = (date) => [
   String(date.getMonth() + 1).padStart(2, '0'),
   String(date.getDate()).padStart(2, '0'),
 ].join('-') + 'T' + [String(date.getHours()).padStart(2, '0'), String(date.getMinutes()).padStart(2, '0')].join(':')
-const minDateTime = () => {
-  const date = new Date()
-  date.setMinutes(date.getMinutes() < 30 ? 0 : 30, 0, 0)
-  return localDateTime(date)
+const appointmentFields = (value) => {
+  const date = value.slice(0, 10)
+  const hour = Number(value.slice(11, 13))
+  const minute = value.slice(14, 16)
+  if (hour !== 0) return { appointmentDate: date, appointmentHour: String(hour), appointmentMinute: minute }
+  const previousDay = new Date(date + 'T12:00:00')
+  previousDay.setDate(previousDay.getDate() - 1)
+  return { appointmentDate: localDateTime(previousDay).slice(0, 10), appointmentHour: '24', appointmentMinute: minute }
 }
-const apiDateTime = (value) => value.length === 16 ? value + ':00' : value
 
 export function Appointments({ go, petId }) {
   const [filters, setFilters] = useState({ hospitalId: '', vetId: '', petId: petId ? String(petId) : '', status: '' })
@@ -139,7 +142,8 @@ export function AppointmentDetails({ appointmentId, go }) {
 
 export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
   const editing = Boolean(appointmentId)
-  const [form, setForm] = useState({ hospitalId: '', petId: petId ? String(petId) : '', vetId: '', appointmentAt: '', reason: '' })
+  const [minimumDate] = useState(() => localDateTime(new Date()).slice(0, 10))
+  const [form, setForm] = useState({ hospitalId: '', petId: petId ? String(petId) : '', vetId: '', appointmentDate: '', appointmentHour: '', appointmentMinute: '', reason: '' })
   const [appointment, setAppointment] = useState(null)
   const [hospitals, setHospitals] = useState([])
   const [vets, setVets] = useState([])
@@ -162,7 +166,7 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
             hospitalId: String(current.hospitalId),
             petId: String(current.petId),
             vetId: String(current.vetId),
-            appointmentAt: current.appointmentAt.slice(0, 16),
+            ...appointmentFields(current.appointmentAt),
             reason: current.reason || '',
           })
         }
@@ -221,11 +225,16 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
 
   async function submit(event) {
     event.preventDefault()
-    const selectedTime = new Date(form.appointmentAt)
-    if (!Number.isFinite(selectedTime.getTime()) || ![0, 30].includes(selectedTime.getMinutes())) {
+    const hour = Number(form.appointmentHour)
+    const minute = Number(form.appointmentMinute)
+    if (!form.appointmentDate || !form.appointmentHour || !form.appointmentMinute || hour < 1 || hour > 24 || ![0, 30].includes(minute)) {
       setError('예약 시간은 정각 또는 30분으로 선택하세요.')
       return
     }
+    const selectedTime = new Date(form.appointmentDate + 'T00:00:00')
+    selectedTime.setDate(selectedTime.getDate() + (hour === 24 ? 1 : 0))
+    selectedTime.setHours(hour === 24 ? 0 : hour, minute, 0, 0)
+    if (!Number.isFinite(selectedTime.getTime())) { setError('예약 날짜를 다시 선택하세요.'); return }
     if (selectedTime.getTime() + 30 * 60_000 <= Date.now()) {
       setError('현재 진행 중이거나 이후인 30분 예약 시간을 선택하세요.')
       return
@@ -236,7 +245,7 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
         hospitalId: Number(form.hospitalId),
         petId: Number(form.petId),
         vetId: Number(form.vetId),
-        appointmentAt: apiDateTime(form.appointmentAt),
+        appointmentAt: localDateTime(selectedTime) + ':00',
         reason: form.reason,
       }, appointmentId)
       go('appointment', { appointmentId: saved.id })
@@ -263,7 +272,12 @@ export function AppointmentForm({ appointmentId, ownerId, petId, go }) {
           <label className="field">반려동물<select name="petId" value={form.petId} onChange={change} required><option value="">반려동물 선택</option>{form.petId && !pets.some((pet) => String(pet.id) === form.petId) && <option value={form.petId}>{appointment?.petName || '선택된 반려동물'} (ID {form.petId})</option>}{pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} (ID {pet.id})</option>)}</select></label>
           <label className="field">수의사<select name="vetId" value={form.vetId} onChange={change} required disabled={!form.hospitalId}><option value="">수의사 선택</option>{vets.map((vet) => <option key={vet.id} value={vet.id}>{vet.name}</option>)}</select></label>
         </div>
-        <label className="field">예약 일시<input name="appointmentAt" type="datetime-local" value={form.appointmentAt} onChange={change} min={minDateTime()} step="1800" required /><small className="field-hint">30분 단위로 선택하세요. 현재 진행 중인 시간대까지 접수할 수 있습니다.</small></label>
+        <div className="appointment-time-grid">
+          <label className="field">예약 날짜<input name="appointmentDate" type="date" value={form.appointmentDate} onChange={change} min={minimumDate} required /></label>
+          <label className="field">시<select name="appointmentHour" value={form.appointmentHour} onChange={change} required><option value="">시 선택</option>{Array.from({ length: 24 }, (_, index) => index + 1).map((hourOption) => <option key={hourOption} value={hourOption}>{hourOption}시</option>)}</select></label>
+          <label className="field">분<select name="appointmentMinute" value={form.appointmentMinute} onChange={change} required><option value="">분 선택</option><option value="00">00분</option><option value="30">30분</option></select></label>
+        </div>
+        <p className="field-hint">30분 단위로 접수할 수 있습니다. 24시는 선택한 날짜의 다음 날 00시대로 저장됩니다.</p>
         <label className="field">진료 사유 (선택)<textarea name="reason" value={form.reason} onChange={change} maxLength={255} rows="4" /></label>
         <div className="form-actions"><button className="button button-secondary" type="button" onClick={back}>취소</button><button className="button" type="submit" disabled={saving}>{saving ? '저장 중...' : editing ? '변경 저장' : '예약 신청'}</button></div>
       </form>

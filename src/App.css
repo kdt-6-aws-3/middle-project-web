@@ -92,6 +92,7 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
 .field span { font-size: 14px; }
 .field-hint { color: #728078; font-size: 12px; font-weight: 400; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.appointment-time-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
 .notice { padding: 15px 18px; border-radius: 11px; margin: 18px 0; }
 .notice-error { background: #fff0ee; color: #a13e31; border: 1px solid #f6c9c3; }
@@ -110,6 +111,7 @@ th { color: #65766b; font-size: 13px; font-weight: 800; background: #f7faf7; }
   .page-heading, .section-heading.inline { align-items: start; flex-direction: column; }
   .info-card { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; gap: 0; }
+  .appointment-time-grid { grid-template-columns: 1fr; gap: 0; }
   .form-card { padding: 22px; }
   .site-footer { flex-direction: column; gap: 6px; }
 }
