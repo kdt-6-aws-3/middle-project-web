@@ -68,17 +68,29 @@ export const clinicApi = {
   listHospitals() { return request('/hospitals') },
   getHospital(hospitalId) { return request('/hospitals/' + id(hospitalId)) },
   listHospitalVets(hospitalId) { return request('/hospitals/' + id(hospitalId) + '/vets') },
-  listVets() { return request('/vets') },
+  listVets(page = 1, size = 20) {
+    const query = new URLSearchParams({ page: String(page), size: String(size) })
+    return request('/vets?' + query)
+  },
+  async listAllVets() {
+    const first = await this.listVets(1, 100)
+    const remaining = await Promise.all(
+      Array.from({ length: first.totalPages - 1 }, (_, index) => this.listVets(index + 2, 100))
+    )
+    return [first, ...remaining].flatMap((result) => result.content)
+  },
   listVetAppointments(vetId, date) {
     const query = new URLSearchParams({ date })
     return request('/vets/' + id(vetId) + '/appointments?' + query)
   },
-  listAppointments(filters = {}) {
+  listAppointments(filters = {}, page = 1, size = 20) {
     const query = new URLSearchParams()
     for (const [key, value] of Object.entries(filters)) {
       if (value !== '' && value !== undefined && value !== null) query.set(key, String(value))
     }
-    return request('/appointments' + (query.size ? '?' + query : ''))
+    query.set('page', String(page))
+    query.set('size', String(size))
+    return request('/appointments?' + query)
   },
   getAppointment(appointmentId) { return request(appointmentPath(appointmentId)) },
   saveAppointment(input, appointmentId) {

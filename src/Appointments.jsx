@@ -36,37 +36,46 @@ export function Appointments({ go, petId }) {
   const [applied, setApplied] = useState({ petId: petId ? String(petId) : '' })
   const [hospitals, setHospitals] = useState([])
   const [vets, setVets] = useState([])
-  const [appointments, setAppointments] = useState([])
+  const [page, setPage] = useState(1)
+  const [result, setResult] = useState({ content: [], page: 1, totalElements: 0, totalPages: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([clinicApi.listHospitals(), clinicApi.listVets()])
+    Promise.all([clinicApi.listHospitals(), clinicApi.listAllVets()])
       .then(([hospitalList, vetList]) => { setHospitals(hospitalList); setVets(vetList) })
       .catch((e) => setError(errorText(e)))
   }, [])
   useEffect(() => {
     let active = true
-    clinicApi.listAppointments(applied)
-      .then((data) => { if (active) setAppointments(data) })
+    clinicApi.listAppointments(applied, page, 5)
+      .then((data) => { if (active) setResult(data) })
       .catch((e) => { if (active) setError(errorText(e)) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [applied])
+  }, [applied, page])
 
   function search(event) {
     event.preventDefault()
     setError('')
     setLoading(true)
+    setPage(1)
     setApplied({ ...filters })
   }
   function showStatus(status) {
     setFilters((current) => ({ ...current, status }))
     setError('')
     setLoading(true)
+    setPage(1)
     setApplied({ ...filters, status })
   }
+  function changePage(nextPage) {
+    setError('')
+    setLoading(true)
+    setPage(nextPage)
+  }
   const change = (event) => setFilters((current) => ({ ...current, [event.target.name]: event.target.value }))
+  const appointments = result.content ?? []
 
   return <section className="page">
     <div className="page-heading"><div><span className="eyebrow">APPOINTMENTS</span><h1>진료 접수 내역</h1><p>접수 상태와 예약 내역을 조회하고 관리하세요.</p></div><button className="button" onClick={() => go('appointmentForm')}>+ 새 예약</button></div>
@@ -81,11 +90,16 @@ export function Appointments({ go, petId }) {
       <button className="button" type="submit">조회</button>
     </form>
     {error && <div className="notice notice-error" role="alert">{error}</div>}
-    {!loading && !error && <p className="result-count">조회된 접수 내역 {appointments.length}건</p>}
+    {!loading && !error && <p className="result-count">조회된 접수 내역 총 {result.totalElements}건</p>}
     {loading ? <p className="empty">불러오는 중...</p> : error ? null : appointments.length === 0 ? <p className="empty">조건에 맞는 접수 내역이 없습니다.</p> :
       <div className="table-wrap"><table><thead><tr><th>접수 번호</th><th>예약 일시</th><th>반려동물</th><th>병원</th><th>수의사</th><th>상태</th><th></th></tr></thead><tbody>
         {appointments.map((appointment) => <tr key={appointment.id}><td>#{appointment.id}</td><td>{displayDateTime(appointment.appointmentAt)}</td><td>{appointment.petName}</td><td>{appointment.hospitalName}</td><td>{appointment.vetName}</td><td>{statusText[appointment.status] || appointment.status}</td><td><button className="text-link" onClick={() => go('appointment', { appointmentId: appointment.id })}>상세 보기 →</button></td></tr>)}
       </tbody></table></div>}
+    {!loading && !error && result.totalPages > 1 && <div className="pagination">
+      <button className="button button-secondary" disabled={page <= 1} onClick={() => changePage(page - 1)}>이전</button>
+      <span>{result.page} / {result.totalPages} 페이지</span>
+      <button className="button button-secondary" disabled={page >= result.totalPages} onClick={() => changePage(page + 1)}>다음</button>
+    </div>}
   </section>
 }
 
