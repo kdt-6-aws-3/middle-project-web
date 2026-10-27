@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-화면: `http://localhost:5173/petclinic/`
+화면: `http://localhost:5173/`
 
 개발 서버는 `/api/*`를 `http://192.168.91.29:8080/api/*`로 프록시합니다. 팀 WAS가 실행 중이어야 보호자·반려동물·방문 기록·수의사 데이터가 표시됩니다. 예시 데이터나 브라우저 저장 모드는 없습니다. WAS가 준비되지 않았다면 API 화면에 연결 오류가 표시됩니다.
 
@@ -19,14 +19,25 @@ npm run dev
 npm run build
 ```
 
-`dist` **안의 파일**을 Apache의 `/var/www/html/petclinic/`에 배치합니다. 기존 정적 소개 페이지 `/var/www/html/index.html`은 별도로 유지할 수 있습니다. Apache의 `/api/` 프록시 대상은 내부 ALB DNS와 실제 리스너 포트로 지정합니다.
+`dist` **안의 파일**을 Apache의 `/var/www/html/`에 배치합니다. Apache의 `/api/` 프록시 대상은 내부 ALB DNS와 실제 리스너 포트로 지정합니다.
 
 ```apache
 ProxyPass        "/api/" "http://INTERNAL-ALB-DNS:8080/api/"
 ProxyPassReverse "/api/" "http://INTERNAL-ALB-DNS:8080/api/"
 ```
 
-기존 `/petclinic/` 전체를 WAS로 보내는 ProxyPass 규칙은 React 경로와 겹치므로 제거해야 합니다. 내부 ALB는 WAS의 `/actuator/health`를 대상 그룹 헬스 체크 경로로 사용할 수 있습니다.
+기존 `/petclinic/` 전체를 WAS로 보내는 ProxyPass 규칙은 현재 React 화면과 맞지 않으므로 제거해야 합니다. 내부 ALB는 WAS의 `/actuator/health`를 대상 그룹 헬스 체크 경로로 사용할 수 있습니다.
+
+## WEB 가용 영역 표시
+
+React 화면 하단에는 현재 HTML을 제공한 WEB EC2의 가용 영역을 표시할 수 있습니다. 빌드된 `index.html`에는 빈 `web-availability-zone` 메타 태그가 들어 있습니다. EC2에서 배포 파일을 복사한 뒤 다음 스크립트로 해당 인스턴스의 값을 넣습니다. 스크립트는 IMDSv2를 사용하며 인터넷이나 AWS CLI가 필요하지 않습니다.
+
+```bash
+sudo install -m 755 scripts/set-web-az.sh /usr/local/bin/set-web-az
+sudo /usr/local/bin/set-web-az /var/www/html/index.html
+```
+
+ASG에서는 설치한 스크립트와 새 React 빌드 파일을 AMI에 포함하고, 시작 템플릿의 **기존 사용자 데이터**에 `sudo /usr/local/bin/set-web-az /var/www/html/index.html` 명령을 추가합니다. 새로운 인스턴스마다 실행해야 하며, React 파일을 다시 배포해 `index.html`이 덮어써졌을 때도 재실행합니다. 작업용 퍼블릭 EC2에서 넣은 가용 영역 값을 AMI에 그대로 저장하면 프라이빗 서브넷의 가용 영역과 다를 수 있습니다.
 
 ## 지원 화면
 
