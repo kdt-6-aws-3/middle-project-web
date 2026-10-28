@@ -313,6 +313,7 @@ function App() {
   const [screen, setScreen] = useState({ name: 'home', nonce: 0 })
   const go = useCallback((name, params = {}) => { setScreen({ name, ...params, nonce: Date.now() + Math.random() }); window.scrollTo(0, 0) }, [])
   const webAvailabilityZone = document.querySelector('meta[name="web-availability-zone"]')?.content
+  const webInstanceId = document.querySelector('meta[name="web-instance-id"]')?.content
   return <div className="site">
     <header className="site-header"><button className="brand" onClick={() => go('home')} aria-label="PetClinic 홈"><span>✦</span> PetClinic</button>
       <nav aria-label="주 메뉴"><button className={screen.name === 'home' ? 'active' : ''} onClick={() => go('home')}>홈</button><button className={['owners', 'owner', 'ownerForm', 'petForm', 'visitForm'].includes(screen.name) ? 'active' : ''} onClick={() => go('owners')}>보호자</button><button className={screen.name === 'vets' ? 'active' : ''} onClick={() => go('vets')}>수의사</button><button className={['appointments', 'appointment', 'appointmentForm'].includes(screen.name) ? 'active' : ''} onClick={() => go('appointments')}>진료 접수</button></nav>
@@ -329,7 +330,7 @@ function App() {
       {screen.name === 'appointment' && <AppointmentDetails appointmentId={screen.appointmentId} go={go} />}
       {screen.name === 'appointmentForm' && <AppointmentForm appointmentId={screen.appointmentId} ownerId={screen.ownerId} petId={screen.petId} go={go} />}
     </main>
-    <footer className="site-footer"><span>✦ PetClinic</span><small>반려동물과 보호자를 위한 건강 기록{webAvailabilityZone && <> · WEB 가용 영역: {webAvailabilityZone}</>}</small></footer>
+    <footer className="site-footer"><span>✦ PetClinic</span><small>반려동물과 보호자를 위한 건강 기록{webAvailabilityZone && <> · WEB 가용 영역: {webAvailabilityZone}</>}{webInstanceId && <> · WEB 인스턴스 ID: {webInstanceId}</>}</small></footer>
   </div>
 }
 
